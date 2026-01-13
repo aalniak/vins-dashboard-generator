@@ -19,6 +19,14 @@ Or use the shell script:
 ```bash
 ./build_dashboard.sh --csv-dir /path/to/csvs --output ./dashboard
 ./build_dashboard.sh --csv-dir /path/to/csvs --rmse ./results.csv --output ./dashboard
+# With deployment
+./build_dashboard.sh \
+    --csv-dir /media/SSD \
+    --pattern "P200*.csv" \
+    --rmse-dir /media/SSD/tartan_out \
+    --output ./dashboard \
+    --deploy \
+    --repo-url https://github.com/aalniak/vinsmono-optimization-results.git
 ```
 
 ## Requirements
