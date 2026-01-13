@@ -1,0 +1,6 @@
+__pycache__/
+*.py[cod]
+*.html
+dashboard/
+*_output/
+.DS_Store
