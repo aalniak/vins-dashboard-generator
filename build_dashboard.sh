@@ -5,6 +5,7 @@
 # Usage:
 #   ./build_dashboard.sh --csv-dir ./data --output ./dashboard
 #   ./build_dashboard.sh --csv-dir ./data --rmse ./results.csv --output ./dashboard
+#   ./build_dashboard.sh --csv-dir ./data --rmse-dir ./tartan_out --output ./dashboard
 #   ./build_dashboard.sh --csv-dir ./data --output ./dashboard --deploy --repo-url https://github.com/user/repo.git
 
 set -e
@@ -12,12 +13,14 @@ set -e
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
+YELLOW='\033[1;33m'
 NC='\033[0m'
 
 CSV_DIR=""
 CSV_PATTERN="*.csv"
 OUTPUT_DIR="./dashboard"
 RMSE_CSV=""
+RMSE_DIR=""
 DEPLOY=false
 REPO_URL=""
 BRANCH="master"
@@ -33,20 +36,30 @@ usage() {
     echo "Optional:"
     echo "  --pattern PATTERN      Glob pattern for CSV files (default: *.csv)"
     echo "  --output DIR           Output directory (default: ./dashboard)"
-    echo "  --rmse FILE            Path to RMSE CSV file"
+    echo "  --rmse FILE            Path to existing RMSE CSV file"
+    echo "  --rmse-dir DIR         Directory with experiment results (generates RMSE automatically)"
     echo "  --deploy               Deploy to GitHub Pages"
     echo "  --repo-url URL         Git repository URL (required with --deploy)"
     echo "  --branch BRANCH        Git branch (default: master)"
     echo "  -h, --help             Show this help message"
     echo ""
     echo "Examples:"
+    echo "  # Basic - just CSVs"
     echo "  $0 --csv-dir ./data --output ./dashboard"
+    echo ""
+    echo "  # With existing RMSE CSV"
     echo "  $0 --csv-dir ./data --rmse ./results.csv --output ./dashboard"
-    echo "  $0 --csv-dir ./data --output ./dashboard --deploy --repo-url https://github.com/user/repo.git"
+    echo ""
+    echo "  # Auto-generate RMSE from experiment results"
+    echo "  $0 --csv-dir ./data --rmse-dir ./tartan_out --output ./dashboard"
+    echo ""
+    echo "  # Full pipeline with deployment"
+    echo "  $0 --csv-dir ./data --rmse-dir ./tartan_out --output ./dashboard --deploy --repo-url https://github.com/user/repo.git"
 }
 
 log_info() { echo -e "${BLUE}[INFO]${NC} $1"; }
 log_success() { echo -e "${GREEN}[SUCCESS]${NC} $1"; }
+log_warn() { echo -e "${YELLOW}[WARN]${NC} $1"; }
 log_error() { echo -e "${RED}[ERROR]${NC} $1"; }
 
 while [[ $# -gt 0 ]]; do
@@ -55,6 +68,7 @@ while [[ $# -gt 0 ]]; do
         --pattern) CSV_PATTERN="$2"; shift 2 ;;
         --output) OUTPUT_DIR="$2"; shift 2 ;;
         --rmse) RMSE_CSV="$2"; shift 2 ;;
+        --rmse-dir) RMSE_DIR="$2"; shift 2 ;;
         --deploy) DEPLOY=true; shift ;;
         --repo-url) REPO_URL="$2"; shift 2 ;;
         --branch) BRANCH="$2"; shift 2 ;;
@@ -85,7 +99,33 @@ echo "║         VINS-Fusion Dashboard Generator                        ║"
 echo "╚════════════════════════════════════════════════════════════════╝"
 echo ""
 
-log_info "Step 1: Generating static dashboard..."
+# Step 1: Generate RMSE table if --rmse-dir provided
+if [ -n "$RMSE_DIR" ]; then
+    log_info "Step 1: Generating RMSE table from experiment results..."
+    
+    if [ ! -d "$RMSE_DIR" ]; then
+        log_error "RMSE directory does not exist: $RMSE_DIR"
+        exit 1
+    fi
+    
+    RMSE_OUTPUT_DIR="${OUTPUT_DIR}_rmse_temp"
+    mkdir -p "$RMSE_OUTPUT_DIR"
+    
+    python3 "${SCRIPT_DIR}/generate_rmse_table.py" \
+        --dir "$RMSE_DIR" \
+        --output "$RMSE_OUTPUT_DIR" \
+        --metric last_batch_best
+    
+    RMSE_CSV="${RMSE_OUTPUT_DIR}/results_table.csv"
+    log_success "RMSE table generated: $RMSE_CSV"
+elif [ -n "$RMSE_CSV" ]; then
+    log_info "Step 1: Using provided RMSE file: $RMSE_CSV"
+else
+    log_warn "Step 1: No RMSE data provided (use --rmse or --rmse-dir)"
+fi
+
+# Step 2: Generate dashboard
+log_info "Step 2: Generating static dashboard..."
 
 ARGS=(--csv-dir "$CSV_DIR" --pattern "$CSV_PATTERN" --output "$OUTPUT_DIR")
 
@@ -98,10 +138,10 @@ python3 "${SCRIPT_DIR}/generate_dashboard.py" "${ARGS[@]}"
 
 log_success "Dashboard generated in: $OUTPUT_DIR"
 
-# Deploy if requested
+# Step 3: Deploy if requested
 if [ "$DEPLOY" = true ]; then
     echo ""
-    log_info "Step 2: Deploying to GitHub Pages..."
+    log_info "Step 3: Deploying to GitHub Pages..."
     
     cd "$OUTPUT_DIR"
     

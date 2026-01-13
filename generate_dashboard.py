@@ -25,7 +25,12 @@ def load_rmse_data(rmse_csv_path=None):
     return RMSE_DATA
 
 def get_rmse(name):
-    """Get RMSE value for a dataset based on naming pattern."""
+    """Get RMSE value for a dataset based on naming pattern.
+    
+    Handles naming convention mismatches between CSV files and RMSE table:
+    - CSV: P2001_base.csv, P2001_daac_depth_opt_w100.csv, P2001_gt_depth_rgd_inverse.csv
+    - RMSE table: baseline, daac_depth_w100, gt_depth_rgd_inv_w0
+    """
     if RMSE_DATA is None:
         return None
     
@@ -45,25 +50,33 @@ def get_rmse(name):
     if variant == 'gt_depth_sdi':
         variant = 'base'
     
-    # Map our variant names to CSV column names
-    variant_to_column = {
-        'base': 'baseline',
-        'daac_depth_opt_w100': 'daac_depth_w100',
-        'daac_rgd_inv': 'daac_rgd_inv_w0',
-        'daac_rgd_metric': 'daac_rgd_metric_w0',
-        'gt_depth_opt_w100': 'gt_depth_opt_w100',
-        'gt_depth_rgd_inverse': 'gt_depth_rgd_inv_w0',
-        'gt_depth_rgd_metric': 'gt_depth_rgd_metric_w0',
+    # Map CSV variant names to possible RMSE column names (try multiple)
+    # Format: csv_variant -> [possible_rmse_columns]
+    variant_to_columns = {
+        'base': ['baseline', 'base_w0', 'base'],
+        'daac_depth_opt_w100': ['daac_depth_w100', 'daac_depth_opt_w100'],
+        'daac_rgd_inv': ['daac_rgd_inv_w0', 'daac_rgd_inv'],
+        'daac_rgd_metric': ['daac_rgd_metric_w0', 'daac_rgd_metric'],
+        'gt_depth_opt_w100': ['gt_depth_opt_w100'],
+        'gt_depth_rgd_inverse': ['gt_depth_rgd_inv_w0', 'gt_depth_rgd_inverse', 'gt_depth_rgd_inv'],
+        'gt_depth_rgd_metric': ['gt_depth_rgd_metric_w0', 'gt_depth_rgd_metric'],
     }
     
-    column = variant_to_column.get(variant)
-    if column is None or seq not in RMSE_DATA.index or column not in RMSE_DATA.columns:
+    # Get possible column names for this variant
+    possible_columns = variant_to_columns.get(variant, [variant])
+    
+    # Check sequence exists
+    if seq not in RMSE_DATA.index:
         return None
     
-    value = RMSE_DATA.loc[seq, column]
-    if pd.isna(value):
-        return None
-    return value
+    # Try each possible column name
+    for column in possible_columns:
+        if column in RMSE_DATA.columns:
+            value = RMSE_DATA.loc[seq, column]
+            if not pd.isna(value):
+                return value
+    
+    return None
 
 def get_description(name):
     """Get description for a dataset based on naming pattern."""
