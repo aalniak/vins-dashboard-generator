@@ -972,7 +972,7 @@ def generate_static_html(csv_files, output_dir, compare_pairs=None):
                 <div class="stat">📈 Frames: {stats['frames']}</div>
                 <div class="stat">⏱️ Avg Solver: {stats['solver_time_avg']:.1f}ms</div>
                 <div class="stat">📉 Avg Reduction: {stats['total_reduction_avg']:.1f}%</div>
-                <div class="stat">📏 Depth Factors: {stats['num_depth_factors_avg']:.0f}</div>
+                <div class="stat">📏 Avg Depth Factors: {stats['num_depth_factors_avg']:.0f}</div>
             </div>
 """
     
